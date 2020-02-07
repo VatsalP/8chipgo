@@ -33,7 +33,6 @@ func loadPicture(path string) (pixel.Picture, error) {
 }
 
 func run() {
-	rand.Seed(time.Now().UTC().UnixNano())
 	cfg := pixelgl.WindowConfig{
 		Title:  "8ChipGo",
 		Bounds: pixel.R(0, 0, 64*scale, 32*scale),
@@ -47,13 +46,14 @@ func run() {
 		panic(err)
 	}
 	batch := pixel.NewBatch(&pixel.TrianglesData{}, pic)
+	vm := newChipVM(rom)
 	var (
-		frames = 0
-		second = time.Tick(time.Second)
+		frames     = 0
+		second     = time.Tick(time.Second)      // for fps
+		delayticks = time.Tick(time.Second / 60) // for timers
+		pixelPos   [32][64]pixel.Rect
 	)
-	var (
-		pixelPos [32][64]pixel.Rect
-	)
+	// Note down Rect for all the pixels
 	for y, yscale := 0, 0.; y < 32; y++ {
 		for x, xscale := 0, 0.; x < 64; x++ {
 			xf, yf := float64(x), float64(y)
@@ -65,8 +65,8 @@ func run() {
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
+		// Draw over the screen
 		batch.Clear()
-
 		for y := 0; y < 32; y++ {
 			for x := 0; x < 64; x++ {
 				if rand.Float64() > 0.5 {
@@ -83,6 +83,14 @@ func run() {
 		case <-second:
 			win.SetTitle(fmt.Sprintf("%s | FPS: %d", cfg.Title, frames))
 			frames = 0
+		case <-delayticks:
+			if vm.delay > 0 {
+				vm.delay--
+			}
+			if vm.sound > 0 {
+				vm.sound--
+				vm.playTone()
+			}
 		default:
 		}
 	}
