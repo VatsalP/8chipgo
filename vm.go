@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/faiface/pixel/pixelgl"
 	"github.com/gammazero/deque"
 )
 
@@ -15,6 +16,7 @@ type chipVM struct {
 	stack        deque.Deque
 	memory       [4096]uint8
 	display      [32][64]int
+	keys         map[pixelgl.Button]uint8
 	pc           int
 }
 
@@ -23,7 +25,24 @@ func newChipVM(file string) *chipVM {
 	vm.sound = 0
 	vm.delay = 0
 	vm.setFont()
-
+	vm.keys = map[pixelgl.Button]uint8{
+		pixelgl.Key1: 0x0,
+		pixelgl.Key2: 0x1,
+		pixelgl.Key3: 0x2,
+		pixelgl.Key4: 0x3,
+		pixelgl.KeyQ: 0x4,
+		pixelgl.KeyW: 0x5,
+		pixelgl.KeyE: 0x6,
+		pixelgl.KeyR: 0x7,
+		pixelgl.KeyA: 0x8,
+		pixelgl.KeyS: 0x9,
+		pixelgl.KeyD: 0xA,
+		pixelgl.KeyF: 0xB,
+		pixelgl.KeyZ: 0xC,
+		pixelgl.KeyX: 0xD,
+		pixelgl.KeyC: 0xE,
+		pixelgl.KeyV: 0xF,
+	}
 	rom, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(err)
@@ -63,6 +82,96 @@ func (vm *chipVM) setFont() {
 	}
 }
 
-func (vm *chipVM) playTone() {
-	
+func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
+	var opcode int = int(vm.memory[vm.pc])<<0x8 | int(vm.memory[vm.pc+1])
+	firstnibble := (opcode & 0xF000) >> 0xC
+	vm.pc += 2
+	switch firstnibble {
+	case 0xF:
+		{
+			firsthalf := (opcode & 0xFF00) >> 0x8
+			x := (opcode & 0x0F00) >> 0x8
+			switch firsthalf {
+			case 0x07:
+				// Store the current value of the delay timer in register VX
+				vm.v[x] = vm.delay
+			case 0x0A:
+				// Wait for a keypress and store the result in register VX
+				pressed := false
+				for k, v := range vm.keys {
+					if win.Pressed(k) {
+						vm.v[x] = v
+						pressed = true
+						break
+					}
+				}
+				if !pressed {
+					vm.pc -= 2
+				}
+			case 0x15:
+				// Set the delay timer to the value of register VX
+				vm.delay = vm.v[x]
+			case 0x18:
+				// Set the sound timer to the value of register VX
+				vm.sound = vm.v[x]
+			case 0x1E:
+				// Add the value stored in register VX to register I
+				vx := vm.v[x]
+				vm.i += uint16(vx)
+			case 0x29:
+				// Set I to the memory address of the sprite data corresponding
+				// to the hexadecimal digit stored in register VX
+				addr := 5 * vm.v[x]
+				vm.i = uint16(addr)
+			case 0x33:
+				// Store the binary-coded decimal equivalent of the value
+				// stored in register VX at addresses I, I+1, and I+2
+				vx := vm.v[x]
+				vm.memory[vm.i] = vx / 100
+				vm.memory[vm.i+1] = (vx % 100) / 10
+				vm.memory[vm.i+2] = vx % 10
+			case 0x55:
+				// Store the values of registers V0 to VX
+				// inclusive in memory starting at address I
+				// I is set to I + X + 1 after operation
+				for j := 0; j < 16; j++ {
+					vm.memory[int(vm.i)+j] = vm.v[j]
+				}
+				vm.i = vm.i + uint16(x) + 1
+			case 0x65:
+				// Fill registers V0 to VX inclusive with the values stored
+				// in memory starting at address I
+				// I is set to I + X + 1 after operation
+				for j := 0; j < 16; j++ {
+					vm.v[j] = vm.memory[int(vm.i)+j]
+				}
+				vm.i = vm.i + uint16(x) + 1
+			default:
+			}
+		}
+	case 0x0:
+		{
+			lastnibble := opcode & 0x000F
+			switch lastnibble {
+			case 0x0:
+				// clear the screen
+				for y := 0; y < 32; y++ {
+					for x := 0; x < 64; x++ {
+						vm.display[y][x] = 0
+					}
+				}
+			case 0xE:
+				// return from a subroutine
+				if v, ok := vm.stack.PopBack().(int); ok {
+					vm.pc = v
+				}
+			}
+		}
+	case 0x8:
+		{
+			
+		}
+	default:
+	}
+
 }

@@ -15,8 +15,11 @@ import (
 	"golang.org/x/image/colornames"
 )
 
-var scale float64
-var rom string
+var (
+	scale float64
+	rom string
+	debug bool
+)
 
 // for the pixel
 func loadPicture(path string) (pixel.Picture, error) {
@@ -65,6 +68,8 @@ func run() {
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
+		vm.fetchNextOpcode()
+
 		// Draw over the screen
 		batch.Clear()
 		for y := 0; y < 32; y++ {
@@ -83,13 +88,18 @@ func run() {
 		case <-second:
 			win.SetTitle(fmt.Sprintf("%s | FPS: %d", cfg.Title, frames))
 			frames = 0
+			if debug {
+				fmt.Printf("V: %v\n", vm.v)
+				fmt.Printf("I: %x\n", vm.i)
+				fmt.Printf("pc: %d\n", vm.pc)
+			}
 		case <-delayticks:
 			if vm.delay > 0 {
 				vm.delay--
 			}
 			if vm.sound > 0 {
 				vm.sound--
-				vm.playTone()
+				// vm.playTone()
 			}
 		default:
 		}
@@ -100,6 +110,7 @@ func main() {
 	flag.Float64Var(&scale, "scale", 1, "resolution scaling factor")
 	flag.Float64Var(&scale, "s", 1, "resolution scaling factor (shorthand)")
 	flag.StringVar(&rom, "rom", "", "chip8 rom")
+	flag.BoolVar(&debug, "debug", false, "print various things")
 	flag.Parse()
 	pixelgl.Run(run)
 }
