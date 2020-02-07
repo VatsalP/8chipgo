@@ -17,7 +17,7 @@ import (
 
 var (
 	scale float64
-	rom string
+	rom   string
 	debug bool
 )
 
@@ -68,7 +68,7 @@ func run() {
 	for !win.Closed() {
 		win.Clear(colornames.Black)
 
-		vm.fetchNextOpcode()
+		vm.fetchNextOpcode(win)
 
 		// Draw over the screen
 		batch.Clear()

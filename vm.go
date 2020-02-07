@@ -10,7 +10,7 @@ import (
 
 // chipVM holds all the register, memory, etc.
 type chipVM struct {
-	v            [0xf]uint8
+	v            [16]uint8
 	i            uint16
 	sound, delay uint8
 	stack        deque.Deque
@@ -85,12 +85,13 @@ func (vm *chipVM) setFont() {
 func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 	var opcode int = int(vm.memory[vm.pc])<<0x8 | int(vm.memory[vm.pc+1])
 	firstnibble := (opcode & 0xF000) >> 0xC
+	x := (opcode & 0x0F00) >> 0x8
+	y := (opcode & 0x00F0) >> 0x4
 	vm.pc += 2
 	switch firstnibble {
 	case 0xF:
 		{
 			firsthalf := (opcode & 0xFF00) >> 0x8
-			x := (opcode & 0x0F00) >> 0x8
 			switch firsthalf {
 			case 0x07:
 				// Store the current value of the delay timer in register VX
@@ -151,27 +152,152 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 		}
 	case 0x0:
 		{
-			lastnibble := opcode & 0x000F
-			switch lastnibble {
-			case 0x0:
+			lastthree := opcode & 0x0FFF
+			switch lastthree {
+			case 0x0E0:
 				// clear the screen
 				for y := 0; y < 32; y++ {
 					for x := 0; x < 64; x++ {
 						vm.display[y][x] = 0
 					}
 				}
-			case 0xE:
+			case 0x0EE:
 				// return from a subroutine
 				if v, ok := vm.stack.PopBack().(int); ok {
 					vm.pc = v
 				}
+			default:
 			}
 		}
 	case 0x8:
 		{
-			
+			lastnibble := opcode & 0x000F
+			switch lastnibble {
+			case 0x0:
+				// Store the value of register VY in register VX
+				vm.v[x] = vm.v[y]
+			case 0x1:
+				// Set VX = VX | VY
+				vm.v[x] |= vm.v[y]
+			case 0x2:
+				// Set VX = VX & VY
+				vm.v[x] &= vm.v[y]
+			case 0x3:
+				// Set VX = VX ^ VY
+				vm.v[x] ^= vm.v[y]
+			case 0x4:
+				// add value of VY to VX
+				// vf = 1 if carry occurs else 0
+				if vm.v[x] > vm.v[x]+vm.v[y] {
+					vm.v[0xF] = 1
+				} else {
+					vm.v[0xF] = 0
+				}
+				vm.v[x] += vm.v[y]
+			case 0x5:
+				// subtract value of VY to VX
+				// vf = 1 if borrow doesnt occurs else 0
+				if vm.v[x] < vm.v[y] {
+					vm.v[0xF] = 0
+				} else {
+					vm.v[0xF] = 1
+				}
+				vm.v[x] -= vm.v[y]
+			case 0x6:
+				// store value of VY shifted right one bit
+				// in VY
+				// VF = lsb prior to shift
+				vm.v[0xF] = vm.v[y] & 0x1
+				vm.v[x] = vm.v[y] >> 0x1
+			case 0x7:
+				// set VX = VY - VX
+				// VF = 1 if borrow doesn't occur else 0
+				if vm.v[x] > vm.v[y] {
+					vm.v[0xF] = 0
+				} else {
+					vm.v[0xF] = 1
+				}
+				vm.v[x] = vm.v[y] - vm.v[x]
+			case 0xE:
+				// set VX = VY << 1
+				// VF = msb prior to shift
+				msb := (vm.v[y] & 0xF0) >> 0x7
+				vm.v[0xF] = msb
+				vm.v[x] = vm.v[y] << 1
+			default:
+			}
 		}
+	case 0xE:
+		{
+			lasthalf := opcode & 0x00FF
+			x := (opcode & 0x0F00) >> 0x8
+			switch lasthalf {
+			case 0x9E:
+				// Skip the next opcode
+				// if key = VX is pressed
+				for k, v := range vm.keys {
+					if v == vm.v[x] {
+						if win.Pressed(k) {
+							vm.pc += 2
+						}
+					}
+				}
+			case 0xA1:
+				// Skip the next opcode
+				// if key = VX is not pressed
+				for k, v := range vm.keys {
+					if v == vm.v[x] {
+						if !win.Pressed(k) {
+							vm.pc += 2
+						}
+					}
+				}
+			default:
+			}
+		}
+	case 0x1:
+		// jump to addr NNN
+		vm.pc = opcode & 0xFFF
+	case 0x2:
+		// execute subroutine at addr NNN
+		vm.stack.PushBack(vm.pc)
+		vm.pc = opcode & 0x0FFF
+	case 0x3:
+		// Skip next opcode if VX == NN
+		if int(vm.v[x]) == (opcode & 0xFF) {
+			vm.pc += 2
+		}
+	case 0x4:
+		// Skip next opcode if VX != NN
+		if int(vm.v[x]) != (opcode & 0xFF) {
+			vm.pc += 2
+		}
+	case 0x5:
+		// skip next opcode if VX == VY
+		if opcode&0xF == 0 {
+			if vm.v[x] == vm.v[y] {
+				vm.pc += 2
+			}
+		} else {
+
+		}
+	case 0x6:
+		// set VX = NN
+		vm.v[x] = uint8(opcode & 0x00FF)
+	case 0x7:
+		// set VX = VY
+		vm.v[x] = vm.v[y]
+	case 0x9:
+		// skip  next opcode if VX != VY
+		if opcode&0xF == 0 {
+			if vm.v[x] != vm.v[y] {
+				vm.pc += 2
+			}
+		} else {
+		}
+	case 0xA:
+		// set I = NNN:
+		vm.i = uint16(opcode & 0x0FFF)
 	default:
 	}
-
 }
