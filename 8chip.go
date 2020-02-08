@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"math/rand"
 	"os"
 	"time"
 
@@ -57,13 +56,11 @@ func run() {
 		pixelPos   [32][64]pixel.Rect
 	)
 	// Note down Rect for all the pixels
-	for y, yscale := 0, 0.; y < 32; y++ {
-		for x, xscale := 0, 0.; x < 64; x++ {
-			xf, yf := float64(x), float64(y)
-			pixelPos[y][x] = pixel.R(xf+xscale, 32.*scale-yf-yscale, xf*scale+xscale, 32.*scale-yf*scale-yscale)
-			xscale += scale
+	for y := 0; y < 32; y++ {
+		for x := 0; x < 64; x++ {
+			xf, yf := float64(x)*scale, float64(y)*scale
+			pixelPos[y][x] = pixel.R(xf, (32*scale)-yf, xf+scale-1, (32*scale)-yf-scale+1)
 		}
-		yscale += scale
 	}
 	for !win.Closed() {
 		win.Clear(colornames.Black)
@@ -74,9 +71,9 @@ func run() {
 		batch.Clear()
 		for y := 0; y < 32; y++ {
 			for x := 0; x < 64; x++ {
-				if rand.Float64() > 0.5 {
+				if vm.display[y][x] == 1 {
 					square := pixel.NewSprite(pic, pic.Bounds())
-					square.Draw(batch, pixel.IM.Scaled(pixel.ZV, scale).Moved(pixelPos[y][x].Center()))
+					square.Draw(batch, pixel.IM.ScaledXY(pixel.ZV, pixel.V(scale, scale)).Moved(pixelPos[y][x].Center()))
 				}
 			}
 		}
@@ -92,6 +89,7 @@ func run() {
 				fmt.Printf("V: %v\n", vm.v)
 				fmt.Printf("I: %x\n", vm.i)
 				fmt.Printf("pc: %d\n", vm.pc)
+				fmt.Printf("OPCODE: %x\n", vm.memory[vm.pc])
 			}
 		case <-delayticks:
 			if vm.delay > 0 {
