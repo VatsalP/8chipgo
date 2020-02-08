@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 
@@ -25,6 +24,7 @@ func newChipVM(file string) *chipVM {
 	vm := new(chipVM)
 	vm.sound = 0
 	vm.delay = 0
+	vm.pc = 0x200
 	vm.setFont()
 	vm.keys = map[pixelgl.Button]uint8{
 		pixelgl.Key1: 0x0,
@@ -50,7 +50,6 @@ func newChipVM(file string) *chipVM {
 	}
 	for addr := 0x200; addr < len(rom)+0x200; addr++ {
 		vm.memory[addr] = rom[addr-0x200]
-		fmt.Printf("addr:\t%x\topcode:\t%x\n", addr, vm.memory[addr])
 	}
 	return vm
 }
@@ -118,17 +117,17 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 		vm.pc = opcode & 0x0FFF
 	case 0x3:
 		// Skip next opcode if VX == NN
-		if int(vm.v[x]) == (opcode & 0xFF) {
+		if int(vm.v[x]) == (opcode & 0x00FF) {
 			vm.pc += 2
 		}
 	case 0x4:
 		// Skip next opcode if VX != NN
-		if int(vm.v[x]) != (opcode & 0xFF) {
+		if int(vm.v[x]) != (opcode & 0x00FF) {
 			vm.pc += 2
 		}
 	case 0x5:
 		// skip next opcode if VX == VY
-		if opcode&0xF == 0 {
+		if opcode&0x000F == 0 {
 			if vm.v[x] == vm.v[y] {
 				vm.pc += 2
 			}
@@ -160,7 +159,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 			case 0x4:
 				// add value of VY to VX
 				// vf = 1 if carry occurs else 0
-				if vm.v[x] > vm.v[x]+vm.v[y] {
+				if int(vm.v[x])+int(vm.v[y]) > 255 {
 					vm.v[0xF] = 1
 				} else {
 					vm.v[0xF] = 0
@@ -169,7 +168,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 			case 0x5:
 				// subtract value of VY to VX
 				// vf = 1 if borrow doesnt occurs else 0
-				if vm.v[x] < vm.v[y] {
+				if int(vm.v[x])-int(vm.v[y]) < 0 {
 					vm.v[0xF] = 0
 				} else {
 					vm.v[0xF] = 1
@@ -184,7 +183,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 			case 0x7:
 				// set VX = VY - VX
 				// VF = 1 if borrow doesn't occur else 0
-				if vm.v[x] > vm.v[y] {
+				if int(vm.v[y])-int(vm.v[x]) < 0 {
 					vm.v[0xF] = 0
 				} else {
 					vm.v[0xF] = 1
@@ -242,7 +241,6 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 	case 0xE:
 		{
 			lasthalf := opcode & 0x00FF
-			x := (opcode & 0x0F00) >> 0x8
 			switch lasthalf {
 			case 0x9E:
 				// Skip the next opcode
@@ -269,7 +267,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 		}
 	case 0xF:
 		{
-			secondhalf := (opcode & 0x00FF) >> 0x8
+			secondhalf := (opcode & 0x00FF)
 			switch secondhalf {
 			case 0x07:
 				// Store the current value of the delay timer in register VX

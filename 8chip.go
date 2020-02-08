@@ -89,7 +89,8 @@ func run() {
 				fmt.Printf("V: %v\n", vm.v)
 				fmt.Printf("I: %x\n", vm.i)
 				fmt.Printf("pc: %d\n", vm.pc)
-				fmt.Printf("OPCODE: %x\n", vm.memory[vm.pc])
+				var opcode int = int(vm.memory[vm.pc])<<0x8 | int(vm.memory[vm.pc+1])
+				fmt.Printf("OPCODE: %x %x = %x \n", vm.memory[vm.pc], vm.memory[vm.pc+1], opcode)
 			}
 		case <-delayticks:
 			if vm.delay > 0 {
