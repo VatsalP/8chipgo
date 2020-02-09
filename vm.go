@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 
@@ -27,21 +28,21 @@ func newChipVM(file string) *chipVM {
 	vm.pc = 0x200
 	vm.setFont()
 	vm.keys = map[pixelgl.Button]uint8{
-		pixelgl.Key1: 0x0,
-		pixelgl.Key2: 0x1,
-		pixelgl.Key3: 0x2,
-		pixelgl.Key4: 0x3,
+		pixelgl.Key1: 0x1,
+		pixelgl.Key2: 0x2,
+		pixelgl.Key3: 0x3,
+		pixelgl.Key4: 0xC,
 		pixelgl.KeyQ: 0x4,
 		pixelgl.KeyW: 0x5,
 		pixelgl.KeyE: 0x6,
-		pixelgl.KeyR: 0x7,
-		pixelgl.KeyA: 0x8,
-		pixelgl.KeyS: 0x9,
-		pixelgl.KeyD: 0xA,
-		pixelgl.KeyF: 0xB,
-		pixelgl.KeyZ: 0xC,
-		pixelgl.KeyX: 0xD,
-		pixelgl.KeyC: 0xE,
+		pixelgl.KeyR: 0xD,
+		pixelgl.KeyA: 0x7,
+		pixelgl.KeyS: 0x8,
+		pixelgl.KeyD: 0x9,
+		pixelgl.KeyF: 0xE,
+		pixelgl.KeyZ: 0xA,
+		pixelgl.KeyX: 0x0,
+		pixelgl.KeyC: 0xB,
 		pixelgl.KeyV: 0xF,
 	}
 	rom, err := ioutil.ReadFile(file)
@@ -87,6 +88,12 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 	firstnibble := (opcode & 0xF000) >> 0xC
 	x := (opcode & 0x0F00) >> 0x8
 	y := (opcode & 0x00F0) >> 0x4
+	if debug {
+		fmt.Printf("V: %v\n", vm.v)
+		fmt.Printf("I: %d\n", vm.i)
+		fmt.Printf("pc: %d\n", vm.pc)
+		fmt.Printf("OPCODE: %x %x = %x \n", vm.memory[vm.pc], vm.memory[vm.pc+1], opcode)
+	}
 	vm.pc += 2
 	switch firstnibble {
 	case 0x0:
@@ -178,7 +185,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 				// store value of VY shifted right one bit
 				// in VY
 				// VF = lsb prior to shift
-				vm.v[0xF] = vm.v[y] & 0x1
+				vm.v[0xF] = vm.v[x] & 0x1
 				vm.v[x] = vm.v[y] >> 0x1
 			case 0x7:
 				// set VX = VY - VX
@@ -192,8 +199,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 			case 0xE:
 				// set VX = VY << 1
 				// VF = msb prior to shift
-				msb := vm.v[y] >> 0x7
-				vm.v[0xF] = msb
+				vm.v[0xF] = vm.v[x] >> 0x7
 				vm.v[x] = vm.v[y] << 1
 			default:
 			}

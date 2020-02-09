@@ -4,11 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"math/rand"
 	"os"
 	"time"
 
 	_ "image/png"
 
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
 	"golang.org/x/image/colornames"
@@ -19,6 +22,17 @@ var (
 	rom   string
 	debug bool
 )
+
+// noise is a beep.Streamer for playing a sound
+func noise() beep.Streamer {
+	return beep.StreamerFunc(func(samples [][2]float64) (n int, ok bool) {
+		for i := range samples {
+			samples[i][0] = rand.Float64()*2 - 1
+			samples[i][1] = rand.Float64()*2 - 1
+		}
+		return len(samples), true
+	})
+}
 
 // for the pixel
 func loadPicture(path string) (pixel.Picture, error) {
@@ -47,6 +61,10 @@ func run() {
 	if err != nil {
 		panic(err)
 	}
+
+	sr := beep.SampleRate(44100)
+	speaker.Init(sr, sr.N(time.Second/10))
+
 	batch := pixel.NewBatch(&pixel.TrianglesData{}, pic)
 	vm := newChipVM(rom)
 	var (
@@ -54,6 +72,8 @@ func run() {
 		second     = time.Tick(time.Second)      // for fps
 		delayticks = time.Tick(time.Second / 60) // for timers
 		pixelPos   [32][64]pixel.Rect
+		done       = make(chan bool)
+		play       = true
 	)
 	// Note down Rect for all the pixels
 	for y := 0; y < 32; y++ {
@@ -85,31 +105,31 @@ func run() {
 		case <-second:
 			win.SetTitle(fmt.Sprintf("%s | FPS: %d", cfg.Title, frames))
 			frames = 0
-			if debug {
-				fmt.Printf("V: %v\n", vm.v)
-				fmt.Printf("I: %x\n", vm.i)
-				fmt.Printf("pc: %d\n", vm.pc)
-				var opcode int = int(vm.memory[vm.pc])<<0x8 | int(vm.memory[vm.pc+1])
-				fmt.Printf("OPCODE: %x %x = %x \n", vm.memory[vm.pc], vm.memory[vm.pc+1], opcode)
-			}
 		case <-delayticks:
 			if vm.delay > 0 {
 				vm.delay--
 			}
-			if vm.sound > 0 {
+			if vm.sound > 2 {
 				vm.sound--
-				// vm.playTone()
+				if play {
+					speaker.Play(beep.Seq(beep.Take(sr.N((time.Second/1000)*20), noise()), beep.Callback(func() {
+						done <- true
+					})))
+					play = false
+				}
 			}
+		case <-done:
+			play = true
 		default:
 		}
 	}
 }
 
 func main() {
-	flag.Float64Var(&scale, "scale", 1, "resolution scaling factor")
-	flag.Float64Var(&scale, "s", 1, "resolution scaling factor (shorthand)")
-	flag.StringVar(&rom, "rom", "", "chip8 rom")
+	flag.Float64Var(&scale, "scale", 10, "resolution scaling factor")
+	flag.Float64Var(&scale, "s", 10, "resolution scaling factor (shorthand)")
 	flag.BoolVar(&debug, "debug", false, "print various things")
+	flag.StringVar(&rom, "rom", "", "chip8 rom")
 	flag.Parse()
 	pixelgl.Run(run)
 }
