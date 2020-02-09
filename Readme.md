@@ -14,6 +14,15 @@ You can try some roms from [here](https://github.com/dmatlack/chip8/tree/master/
 $(go env GOPATH)/8chip -rom romfile
 ```
 
+Keyboard mapping in form of - Currently used (corresponding in original)
+
+|   |   |   |   |
+|:-:|---|---|---|
+|1(1)|2(2)|3(3)|4(C)|
+|q(4)|w(5)|e(6)|r(D)|
+|a(7)|s(8)|d(9)|f(E)|
+|z(A)|x(0)|c(b)|v(F)|
+
 There are additional requirements for building pixel (see more in pixel [repo](https://github.com/faiface/pixel)):
 
 - On macOS, you need Xcode or Command Line Tools for Xcode (xcode-select --install) for required headers and libraries.
