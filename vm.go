@@ -185,7 +185,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 				// store value of VY shifted right one bit
 				// in VY
 				// VF = lsb prior to shift
-				vm.v[0xF] = vm.v[x] & 0x1
+				vm.v[0xF] = vm.v[y] & 0x1
 				vm.v[x] = vm.v[y] >> 0x1
 			case 0x7:
 				// set VX = VY - VX
@@ -199,7 +199,7 @@ func (vm *chipVM) fetchNextOpcode(win *pixelgl.Window) {
 			case 0xE:
 				// set VX = VY << 1
 				// VF = msb prior to shift
-				vm.v[0xF] = vm.v[x] >> 0x7
+				vm.v[0xF] = vm.v[y] >> 0x7
 				vm.v[x] = vm.v[y] << 1
 			default:
 			}

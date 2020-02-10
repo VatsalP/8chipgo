@@ -79,7 +79,7 @@ func run() {
 	for y := 0; y < 32; y++ {
 		for x := 0; x < 64; x++ {
 			xf, yf := float64(x)*scale, float64(y)*scale
-			pixelPos[y][x] = pixel.R(xf, (32*scale)-yf, xf+scale-1, (32*scale)-yf-scale+1)
+			pixelPos[y][x] = pixel.R(xf, (32*scale)-yf, xf+scale, (32*scale)-yf-scale)
 		}
 	}
 	for !win.Closed() {
