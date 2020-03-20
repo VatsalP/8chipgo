@@ -1,4 +1,5 @@
 # 8Chipgo
+[![Go Report Card](https://goreportcard.com/badge/github.com/vatsalp/8chipgo)](https://goreportcard.com/report/github.com/vatsalp/8chipgo)
 
 Chip8  emulator made in Go using [pixel](https://github.com/faiface/pixel) library
 
